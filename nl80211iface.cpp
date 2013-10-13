@@ -112,6 +112,9 @@ NL80211Iface::NL80211Iface(std::string ifname)
             std::cerr << "Impossibile trovare nl80211 per l'interfaccia " << ifname << std::endl;
             abort();
         }
+        struct nl_cb *s_cb;
+        s_cb = nl_cb_alloc(NL_CB_DEFAULT);
+        nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
     }
 }
 
@@ -132,12 +135,10 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid)
     pthread_mutex_lock(&netlink_mutex);
     struct nl_msg *msg;
     struct nl_cb *cb;
-    struct nl_cb *s_cb;
     signed long long devidx = 0;
     int err;
     msg = nlmsg_alloc();
     cb = nl_cb_alloc(NL_CB_DEFAULT);
-    s_cb = nl_cb_alloc(NL_CB_DEFAULT);
     
     genlmsg_put(msg,0,0, nl802111_id, 0, 0, NL80211_CMD_CONNECT, 0);
     
@@ -145,7 +146,7 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid)
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
     NLA_PUT(msg, NL80211_ATTR_SSID, ssid.length(), ssid.c_str());
     
-     nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
+     
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
@@ -177,12 +178,12 @@ bool NL80211Iface::disconnectVirtualIface(std::string name)
     pthread_mutex_lock(&netlink_mutex);
     struct nl_msg *msg;
     struct nl_cb *cb;
-    struct nl_cb *s_cb;
+
     signed long long devidx = 0;
     int err;
     msg = nlmsg_alloc();
     cb = nl_cb_alloc(NL_CB_DEFAULT);
-    s_cb = nl_cb_alloc(NL_CB_DEFAULT);
+    
     
     genlmsg_put(msg,0,0, nl802111_id, 0, 0, NL80211_CMD_DISCONNECT, 0);
     
@@ -190,7 +191,6 @@ bool NL80211Iface::disconnectVirtualIface(std::string name)
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
     
     
-     nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
@@ -222,20 +222,18 @@ bool NL80211Iface::deleteVirtualIface(std::string name)
     pthread_mutex_lock(&netlink_mutex);
     struct nl_msg *msg;
     struct nl_cb *cb;
-    struct nl_cb *s_cb;
+
     signed long long devidx = 0;
     int err;
     msg = nlmsg_alloc();
     cb = nl_cb_alloc(NL_CB_DEFAULT);
-    s_cb = nl_cb_alloc(NL_CB_DEFAULT);
-    
+
     genlmsg_put(msg,0,0, nl802111_id, 0, 0, NL80211_CMD_DEL_INTERFACE, 0);
     
     devidx = if_nametoindex(name.c_str());
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
     
-    
-     nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
+
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
@@ -268,12 +266,12 @@ bool NL80211Iface::createNewVirtualIface(std::string name, std::string mac_addr)
     pthread_mutex_lock(&netlink_mutex);
     struct nl_msg *msg;
     struct nl_cb *cb;
-    struct nl_cb *s_cb;
+
     signed long long devidx = 0;
     int err;
     msg = nlmsg_alloc();
     cb = nl_cb_alloc(NL_CB_DEFAULT);
-    s_cb = nl_cb_alloc(NL_CB_DEFAULT);
+
     
     genlmsg_put(msg,0,0, nl802111_id, 0, 0, NL80211_CMD_NEW_INTERFACE, 0);
     
@@ -285,7 +283,6 @@ bool NL80211Iface::createNewVirtualIface(std::string name, std::string mac_addr)
     NLA_PUT_U32(msg,NL80211_ATTR_IFTYPE, NL80211_IFTYPE_STATION);
     
     
-     nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
@@ -334,18 +331,17 @@ std::vector< std::string > NL80211Iface::enumSta()
     std::vector< std::string > ret;
     struct nl_msg *msg;
     struct nl_cb *cb;
-    struct nl_cb *s_cb;
+    
     signed long long devidx = 0;
     int err;
     msg = nlmsg_alloc();
     cb = nl_cb_alloc(NL_CB_DEFAULT);
-    s_cb = nl_cb_alloc(NL_CB_DEFAULT);
+
     genlmsg_put(msg,0,0, nl802111_id, 0, NLM_F_DUMP, NL80211_CMD_GET_STATION, 0);
     devidx = if_nametoindex(m_ifname.c_str());
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
     
-    
-    nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
+
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
