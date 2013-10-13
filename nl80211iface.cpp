@@ -120,8 +120,7 @@ NL80211Iface::NL80211Iface(std::string ifname)
 
 NL80211Iface::~NL80211Iface()
 {
-    if ( nl_sck )
-        nl_socket_free(nl_sck);
+    
 }
 
 bool NL80211Iface::isConnected()
