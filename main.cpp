@@ -62,7 +62,11 @@ int main(int argc, char **argv) {
     std::cout << mac_test << " " << translated << " " << retranslated << std::endl;
     
     NL80211Iface sta(argv[3]);
-    NL80211Iface ap(argv[4]);
+    std::vector<NL80211Iface*> aps;
+    for ( int i = 4; i < argc; i++ )
+    {
+        aps.push_back(new NL80211Iface(argv[i]));
+    }
     RoutingManager rmgr;
    /* for ( std::vector<std::string>::iterator it = stations.begin(); it != stations.end(); it++ )
     {
@@ -94,7 +98,12 @@ int main(int argc, char **argv) {
     wpa_supplicants.resize(200);
     while ( true )
     {
-        std::vector<std::string> vstations = ap.enumSta();
+        std::vector<std::string> vstations;
+        for ( std::vector<NL80211Iface*>::iterator it = aps.begin(); it != aps.end(); it++ )
+        {
+            std::vector<std::string> stas_1 = (*it)->enumSta();
+            vstations.insert(vstations.end(),stas_1.begin(),stas_1.end());
+        }
         std::set<std::string> curr_stations;
         for ( std::vector<std::string>::iterator it = vstations.begin(); it != vstations.end(); it++ )
         {
