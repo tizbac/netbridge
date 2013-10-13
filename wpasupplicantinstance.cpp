@@ -48,7 +48,7 @@ void WPASupplicantInstance::dhcp_thread()
     if ( !dhcp_thread_run )
         return;
     std::stringstream ss;
-    ss << "dhclient " << m_ifname << "-pf /var/run/netbridge/dhclient_pid_" << m_ifname << ".pid";
+    ss << "dhclient " << m_ifname << " -pf /var/run/netbridge/dhclient_pid_" << m_ifname << ".pid";
 
     system(ss.str().c_str());
         
