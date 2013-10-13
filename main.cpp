@@ -160,12 +160,17 @@ int main(int argc, char **argv) {
                 
             }
         }
+        for ( int i = 0; i < slots.size(); i++ )
+        {
+            if ( slots[i].length() > 0 )
+                wpa_supplicants[i]->pollConnection();
+        }
         stations = curr_stations;
         std::cout << stations.size() << " connessi" << std::endl;
         
         
         
-        sleep(5);
+        sleep(3);
     }
     
     

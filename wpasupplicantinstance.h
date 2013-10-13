@@ -30,7 +30,7 @@ class WPASupplicantInstance
 public:
     WPASupplicantInstance(std::string ifname, std::string ssid, std::string routing_table, std::string gateway, int mark);
     ~WPASupplicantInstance();
-    
+    void pollConnection();
 private:
     void dhcp_thread();
 
@@ -44,6 +44,7 @@ private:
     std::string m_gateway;
     int m_mark;
     pid_t m_dhcp_pid;
+    bool isconnected;
 };
 
 #endif // WPASUPPLICANTINSTANCE_H

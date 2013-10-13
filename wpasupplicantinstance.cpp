@@ -36,11 +36,11 @@
 void WPASupplicantInstance::dhcp_thread()
 {
     std::cout << "Thread DHCP avviato" << std::endl;
-    NL80211Iface iface(m_ifname);
+    //NL80211Iface iface(m_ifname); Netlink si scazza con il multithreading
     RoutingManager rmgr;
     while ( dhcp_thread_run )
     {
-        if ( iface.isConnected() )
+        if ( isconnected )
             break;
         std::cout << "Attendo la connessione..." << std::endl;
         usleep(500000);
@@ -66,6 +66,7 @@ WPASupplicantInstance::WPASupplicantInstance(std::string ifname, std::string ssi
     m_rtname = routing_table;
     m_gateway = gateway;
     m_mark = mark;
+    isconnected = false;
    /* std::stringstream ss2;
     ss2 << "/var/run/netbridge/" << m_ifname << "ctrl_interface";
     unlink(ss2.str().c_str());*/
@@ -90,6 +91,12 @@ WPASupplicantInstance::WPASupplicantInstance(std::string ifname, std::string ssi
     std::cout << "Avviato wpa_supplicant, PID: " << cp << std::endl;
     m_pid = cp;
 }
+void WPASupplicantInstance::pollConnection()
+{
+    NL80211Iface iface(m_ifname);
+    isconnected = iface.isConnected();
+}
+
 WPASupplicantInstance::~WPASupplicantInstance()
 {
     int status;
