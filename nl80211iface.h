@@ -42,7 +42,6 @@ public:
 private:
     std::string m_ifname;
     struct nl_sock * m_sck;
-    int nl802111_id;
 };
 
 #endif // NL80211AP_H

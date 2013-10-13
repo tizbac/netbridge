@@ -84,35 +84,41 @@ void mac_addr_n2a(char *mac_addr, unsigned char *arg)
     }
 }
 
-
+int nl802111_id = -1;
+nl_sock * nl_sck = 0;
+pthread_mutex_t netlink_mutex;
 NL80211Iface::NL80211Iface(std::string ifname)
 {
     m_ifname = ifname;
-    m_sck = (nl_sock*)nl_socket_alloc();
-    if ( !m_sck )
+    if ( !nl_sck )
     {
-        std::cerr << "Impossibile allocare il socket netlink per l'interfaccia " << ifname << std::endl;
-        abort();
-    }
-    nl_socket_set_buffer_size(m_sck, 8192, 8192);
-    if ( genl_connect((nl_handle*)m_sck) )
-    {
-        std::cerr << "Impossibile connettersi a netlink per l'interfaccia " << ifname << std::endl;
-        abort();
-    }
-    
-    nl802111_id = genl_ctrl_resolve((nl_handle*)m_sck, "nl80211");
-    if ( nl802111_id < 0 )
-    {
-        std::cerr << "Impossibile trovare nl80211 per l'interfaccia " << ifname << std::endl;
-        abort();
+        pthread_mutex_init(&netlink_mutex,NULL);
+        nl_sck = (nl_sock*)nl_socket_alloc();
+        if ( !nl_sck )
+        {
+            std::cerr << "Impossibile allocare il socket netlink per l'interfaccia " << ifname << std::endl;
+            abort();
+        }
+        nl_socket_set_buffer_size(nl_sck, 8192, 8192);
+        if ( genl_connect((nl_handle*)nl_sck) )
+        {
+            std::cerr << "Impossibile connettersi a netlink per l'interfaccia " << ifname << std::endl;
+            abort();
+        }
+        
+        nl802111_id = genl_ctrl_resolve((nl_handle*)nl_sck, "nl80211");
+        if ( nl802111_id < 0 )
+        {
+            std::cerr << "Impossibile trovare nl80211 per l'interfaccia " << ifname << std::endl;
+            abort();
+        }
     }
 }
 
 NL80211Iface::~NL80211Iface()
 {
-    if ( m_sck )
-        nl_socket_free(m_sck);
+    if ( nl_sck )
+        nl_socket_free(nl_sck);
 }
 
 bool NL80211Iface::isConnected()
@@ -123,6 +129,7 @@ bool NL80211Iface::isConnected()
 
 bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid)
 {
+    pthread_mutex_lock(&netlink_mutex);
     struct nl_msg *msg;
     struct nl_cb *cb;
     struct nl_cb *s_cb;
@@ -138,10 +145,11 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid)
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
     NLA_PUT(msg, NL80211_ATTR_SSID, ssid.length(), ssid.c_str());
     
-     nl_socket_set_cb((nl_handle*)m_sck,s_cb);
-    if ( nl_send_auto_complete((nl_handle*)m_sck,msg) < 0 )
+     nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
+    if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
+        pthread_mutex_unlock(&netlink_mutex);
         return false;
     }
     err = 1;
@@ -151,7 +159,7 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid)
     nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler, &err);
     
     while ( err > 0 )
-        nl_recvmsgs((nl_handle*)m_sck, cb);
+        nl_recvmsgs((nl_handle*)nl_sck, cb);
     
     nl_cb_put(cb);
     
@@ -160,11 +168,13 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid)
     nlmsg_free(msg);
     if ( ! err )
         std::cout << "Interfaccia " << name << " In connessione... " << std::endl;
+    pthread_mutex_unlock(&netlink_mutex);
     return true;
 }
 
 bool NL80211Iface::disconnectVirtualIface(std::string name)
 {
+    pthread_mutex_lock(&netlink_mutex);
     struct nl_msg *msg;
     struct nl_cb *cb;
     struct nl_cb *s_cb;
@@ -180,10 +190,11 @@ bool NL80211Iface::disconnectVirtualIface(std::string name)
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
     
     
-     nl_socket_set_cb((nl_handle*)m_sck,s_cb);
-    if ( nl_send_auto_complete((nl_handle*)m_sck,msg) < 0 )
+     nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
+    if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
+        pthread_mutex_unlock(&netlink_mutex);
         return false;
     }
     err = 1;
@@ -193,7 +204,7 @@ bool NL80211Iface::disconnectVirtualIface(std::string name)
     nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler, &err);
     
     while ( err > 0 )
-        nl_recvmsgs((nl_handle*)m_sck, cb);
+        nl_recvmsgs((nl_handle*)nl_sck, cb);
     
     nl_cb_put(cb);
     
@@ -202,11 +213,13 @@ bool NL80211Iface::disconnectVirtualIface(std::string name)
     nlmsg_free(msg);
     if ( ! err )
         std::cout << "Interfaccia " << name << " Disconnessa " << std::endl;
+    pthread_mutex_unlock(&netlink_mutex);
     return true;
 }
 
 bool NL80211Iface::deleteVirtualIface(std::string name)
 {
+    pthread_mutex_lock(&netlink_mutex);
     struct nl_msg *msg;
     struct nl_cb *cb;
     struct nl_cb *s_cb;
@@ -222,10 +235,11 @@ bool NL80211Iface::deleteVirtualIface(std::string name)
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
     
     
-     nl_socket_set_cb((nl_handle*)m_sck,s_cb);
-    if ( nl_send_auto_complete((nl_handle*)m_sck,msg) < 0 )
+     nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
+    if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
+        pthread_mutex_unlock(&netlink_mutex);
         return false;
     }
     err = 1;
@@ -235,7 +249,7 @@ bool NL80211Iface::deleteVirtualIface(std::string name)
     nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler, &err);
     
     while ( err > 0 )
-        nl_recvmsgs((nl_handle*)m_sck, cb);
+        nl_recvmsgs((nl_handle*)nl_sck, cb);
     
     nl_cb_put(cb);
     
@@ -244,13 +258,14 @@ bool NL80211Iface::deleteVirtualIface(std::string name)
     nlmsg_free(msg);
     if ( ! err )
         std::cout << "Interfaccia " << name << " Eliminata " << std::endl;
+    pthread_mutex_unlock(&netlink_mutex);
     return true;
 }
 
 
 bool NL80211Iface::createNewVirtualIface(std::string name, std::string mac_addr)
 {
-
+    pthread_mutex_lock(&netlink_mutex);
     struct nl_msg *msg;
     struct nl_cb *cb;
     struct nl_cb *s_cb;
@@ -270,10 +285,11 @@ bool NL80211Iface::createNewVirtualIface(std::string name, std::string mac_addr)
     NLA_PUT_U32(msg,NL80211_ATTR_IFTYPE, NL80211_IFTYPE_STATION);
     
     
-     nl_socket_set_cb((nl_handle*)m_sck,s_cb);
-    if ( nl_send_auto_complete((nl_handle*)m_sck,msg) < 0 )
+     nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
+    if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
+        pthread_mutex_unlock(&netlink_mutex);
         return false;
     }
     err = 1;
@@ -283,7 +299,7 @@ bool NL80211Iface::createNewVirtualIface(std::string name, std::string mac_addr)
     nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler, &err);
     
     while ( err > 0 )
-        nl_recvmsgs((nl_handle*)m_sck, cb);
+        nl_recvmsgs((nl_handle*)nl_sck, cb);
     
     nl_cb_put(cb);
     
@@ -307,12 +323,14 @@ bool NL80211Iface::createNewVirtualIface(std::string name, std::string mac_addr)
     ioctl(s, SIOCSIFHWADDR, &ifr);
     ioctl(s, SIOCSIFFLAGS, &ifr);
     std::cout << "Creata nuova interfaccia " << name << " su " << m_ifname << " con mac address: " << mac_addr << std::endl;
+    pthread_mutex_unlock(&netlink_mutex);
     return true;
 }
 
 
 std::vector< std::string > NL80211Iface::enumSta()
 {
+    pthread_mutex_lock(&netlink_mutex);
     std::vector< std::string > ret;
     struct nl_msg *msg;
     struct nl_cb *cb;
@@ -327,10 +345,11 @@ std::vector< std::string > NL80211Iface::enumSta()
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
     
     
-    nl_socket_set_cb((nl_handle*)m_sck,s_cb);
-    if ( nl_send_auto_complete((nl_handle*)m_sck,msg) < 0 )
+    nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
+    if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
+        pthread_mutex_unlock(&netlink_mutex);
         return ret;
     }
     err = 1;
@@ -342,13 +361,14 @@ std::vector< std::string > NL80211Iface::enumSta()
     nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler, &err);
     
     while ( err > 0 )
-        nl_recvmsgs((nl_handle*)m_sck, cb);
+        nl_recvmsgs((nl_handle*)nl_sck, cb);
     
     nl_cb_put(cb);
     
     nla_put_failure:
     
     nlmsg_free(msg);
+    pthread_mutex_unlock(&netlink_mutex);
 }
 int NL80211Iface::staListPopulate(nl_msg* msg, void* arg)
 {
