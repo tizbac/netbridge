@@ -58,8 +58,9 @@ void WPASupplicantInstance::dhcp_thread()
         while ( dhcp_thread_run )
         {
             int fd;
+            
             struct ifreq ifr;
-
+            memset(&ifr,sizeof(ifr),0);
             fd = socket(AF_INET, SOCK_DGRAM, 0);
 
             /* I want to get an IPv4 IP address */
@@ -73,7 +74,7 @@ void WPASupplicantInstance::dhcp_thread()
             close(fd);
             
             std::string ip = inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
-            
+            std::cout << "[" << ip << "]" << std::endl;
             if ( ip != "0.0.0.0" )
             {
                 break;
