@@ -32,6 +32,7 @@ public:
     NL80211Iface(std::string ifname);
     ~NL80211Iface();
     std::vector<std::string> enumSta();
+    static void init();
     static int staListPopulate(struct nl_msg *msg, void *arg);
     
     bool createNewVirtualIface(std::string name , std::string mac_addr);

@@ -46,6 +46,7 @@ std::string rtablename(int index)
 }
 int main(int argc, char **argv) {
    // std::cout << "Hello, world!" << std::endl;
+    NL80211Iface::init();
     mkdir("/var/run/netbridge",0557);
     if ( argc < 5 )
     {

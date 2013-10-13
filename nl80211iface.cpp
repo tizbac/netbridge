@@ -87,35 +87,35 @@ void mac_addr_n2a(char *mac_addr, unsigned char *arg)
 int nl802111_id = -1;
 nl_sock * nl_sck = 0;
 pthread_mutex_t netlink_mutex;
+void NL80211Iface::init()
+{
+    pthread_mutex_init(&netlink_mutex,NULL);
+    nl_sck = (nl_sock*)nl_socket_alloc();
+    if ( !nl_sck )
+    {
+        std::cerr << "Impossibile allocare il socket netlink " << std::endl;
+        abort();
+    }
+    nl_socket_set_buffer_size(nl_sck, 8192, 8192);
+    if ( genl_connect((nl_handle*)nl_sck) )
+    {
+        std::cerr << "Impossibile connettersi a netlink " << std::endl;
+        abort();
+    }
+    
+    nl802111_id = genl_ctrl_resolve((nl_handle*)nl_sck, "nl80211");
+    if ( nl802111_id < 0 )
+    {
+        std::cerr << "Impossibile trovare nl80211 " << std::endl;
+        abort();
+    }
+}
+
 NL80211Iface::NL80211Iface(std::string ifname)
 {
     m_ifname = ifname;
-    if ( !nl_sck )
-    {
-        pthread_mutex_init(&netlink_mutex,NULL);
-        nl_sck = (nl_sock*)nl_socket_alloc();
-        if ( !nl_sck )
-        {
-            std::cerr << "Impossibile allocare il socket netlink per l'interfaccia " << ifname << std::endl;
-            abort();
-        }
-        nl_socket_set_buffer_size(nl_sck, 8192, 8192);
-        if ( genl_connect((nl_handle*)nl_sck) )
-        {
-            std::cerr << "Impossibile connettersi a netlink per l'interfaccia " << ifname << std::endl;
-            abort();
-        }
-        
-        nl802111_id = genl_ctrl_resolve((nl_handle*)nl_sck, "nl80211");
-        if ( nl802111_id < 0 )
-        {
-            std::cerr << "Impossibile trovare nl80211 per l'interfaccia " << ifname << std::endl;
-            abort();
-        }
-        struct nl_cb *s_cb;
-        s_cb = nl_cb_alloc(NL_CB_DEFAULT);
-        nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
-    }
+    
+    
 }
 
 NL80211Iface::~NL80211Iface()
@@ -145,7 +145,9 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid)
     devidx = if_nametoindex(name.c_str());
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
     NLA_PUT(msg, NL80211_ATTR_SSID, ssid.length(), ssid.c_str());
-    
+    struct nl_cb *s_cb;
+    s_cb = nl_cb_alloc(NL_CB_DEFAULT);
+    nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
      
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
@@ -190,7 +192,9 @@ bool NL80211Iface::disconnectVirtualIface(std::string name)
     devidx = if_nametoindex(name.c_str());
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
     
-    
+    struct nl_cb *s_cb;
+    s_cb = nl_cb_alloc(NL_CB_DEFAULT);
+    nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
@@ -233,7 +237,9 @@ bool NL80211Iface::deleteVirtualIface(std::string name)
     devidx = if_nametoindex(name.c_str());
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
     
-
+    struct nl_cb *s_cb;
+    s_cb = nl_cb_alloc(NL_CB_DEFAULT);
+    nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
@@ -282,7 +288,9 @@ bool NL80211Iface::createNewVirtualIface(std::string name, std::string mac_addr)
     NLA_PUT_STRING(msg, NL80211_ATTR_IFNAME, name.c_str());
     NLA_PUT_U32(msg,NL80211_ATTR_IFTYPE, NL80211_IFTYPE_STATION);
     
-    
+    struct nl_cb *s_cb;
+    s_cb = nl_cb_alloc(NL_CB_DEFAULT);
+    nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
@@ -340,7 +348,9 @@ std::vector< std::string > NL80211Iface::enumSta()
     genlmsg_put(msg,0,0, nl802111_id, 0, NLM_F_DUMP, NL80211_CMD_GET_STATION, 0);
     devidx = if_nametoindex(m_ifname.c_str());
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
-    
+    struct nl_cb *s_cb;
+    s_cb = nl_cb_alloc(NL_CB_DEFAULT);
+    nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
 
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
