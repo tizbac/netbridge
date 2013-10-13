@@ -48,49 +48,14 @@ void WPASupplicantInstance::dhcp_thread()
     if ( !dhcp_thread_run )
         return;
     std::stringstream ss;
-    ss << "/var/run/netbridge/dhclient_pid_" << m_ifname << ".pid";
-    m_dhcp_pid = fork();
-    if ( m_dhcp_pid == 0 )
-    {
-        execl("/usr/sbin/dhclient","dhclient",m_ifname.c_str(),"-pf",ss.str().c_str());
-        exit(0);
-    }else{
-        while ( dhcp_thread_run )
-        {
-            int fd;
-            
-            struct ifreq ifr;
-            memset(&ifr,sizeof(ifr),0);
-            fd = socket(AF_INET, SOCK_DGRAM, 0);
+    ss << "dhclient " << m_ifname << "-pf /var/run/netbridge/dhclient_pid_" << m_ifname << ".pid";
 
-            /* I want to get an IPv4 IP address */
-            ifr.ifr_addr.sa_family = AF_INET;
-
-            /* I want IP address attached to "eth0" */
-            strncpy(ifr.ifr_name, m_ifname.c_str(), IFNAMSIZ-1);
-
-            ioctl(fd, SIOCGIFADDR, &ifr);
-
-            close(fd);
-            
-            std::string ip = inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
-            std::cout << "[" << ip << "]" << std::endl;
-            if ( ip != "0.0.0.0" )
-            {
-                break;
-            }
-            
-            
-            usleep(100000);
-            
-        }
-        if ( !dhcp_thread_run )
-            return;
+    system(ss.str().c_str());
         
-        std::cout << "DHCP Completato, impostazione del routing..." << std::endl;
-        rmgr.addDefaultRouteToIface(m_ifname,m_gateway,m_rtname);
-        rmgr.addTableMark(m_rtname,m_mark);
-    }
+    std::cout << "DHCP Completato, impostazione del routing..." << std::endl;
+    rmgr.addDefaultRouteToIface(m_ifname,m_gateway,m_rtname);
+    rmgr.addTableMark(m_rtname,m_mark);
+
 }
 
 WPASupplicantInstance::WPASupplicantInstance(std::string ifname, std::string ssid, std::string routing_table, std::string gateway, int mark)
@@ -133,8 +98,7 @@ WPASupplicantInstance::~WPASupplicantInstance()
     kill(m_pid,SIGKILL);
     waitpid(m_pid,&status,0);
     std::cout << "wpa_supplicant con PID: " << m_pid << " terminato " << std::endl;
-    dhcp_thread_run = false;
-    pthread_join(dhcp_th,NULL);
+    
     std::cout << "Thread dhcp terminato" << std::endl;
     std::stringstream ss;
     ss << "/var/run/netbridge/dhclient_pid_" << m_ifname << ".pid";
@@ -150,6 +114,9 @@ WPASupplicantInstance::~WPASupplicantInstance()
         kill(pid,SIGTERM);
     }
     unlink(ss.str().c_str());
+    
+    dhcp_thread_run = false;
+    pthread_join(dhcp_th,NULL);
     
 }
 

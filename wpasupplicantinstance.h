@@ -33,6 +33,7 @@ public:
     
 private:
     void dhcp_thread();
+
     std::string config;
     pid_t m_pid;
     struct wpa_ctrl * c;
