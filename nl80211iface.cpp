@@ -375,6 +375,7 @@ std::vector< std::string > NL80211Iface::enumSta()
     
     nlmsg_free(msg);
     pthread_mutex_unlock(&netlink_mutex);
+    return ret;
 }
 int NL80211Iface::staListPopulate(nl_msg* msg, void* arg)
 {
