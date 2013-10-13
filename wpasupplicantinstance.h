@@ -42,6 +42,7 @@ private:
     std::string m_rtname;
     std::string m_gateway;
     int m_mark;
+    pid_t m_dhcp_pid;
 };
 
 #endif // WPASUPPLICANTINSTANCE_H
