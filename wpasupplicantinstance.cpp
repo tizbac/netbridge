@@ -67,6 +67,12 @@ WPASupplicantInstance::WPASupplicantInstance(std::string ifname, std::string ssi
     m_gateway = gateway;
     m_mark = mark;
     isconnected = false;
+    std::string bssid;
+    if ( ssid.find(',') != ssid.npos )
+    {
+      bssid = ssid.substr(ssid.find(',')+1);
+      ssid = ssid.substr(0,ssid.find(','));
+    }
    /* std::stringstream ss2;
     ss2 << "/var/run/netbridge/" << m_ifname << "ctrl_interface";
     unlink(ss2.str().c_str());*/
@@ -75,7 +81,10 @@ WPASupplicantInstance::WPASupplicantInstance(std::string ifname, std::string ssi
     confn << "/var/run/netbridge/" << ifname << ".conf";
     std::ofstream ss(confn.str().c_str());
     ss << "ctrl_interface=/var/run/netbridge/\n";
-    ss << "network={\n ssid=\"" << ssid << "\"\n key_mgmt=NONE\n }";
+    ss << "network={\n ssid=\"" << ssid << "\"\n key_mgmt=NONE";
+    if ( bssid.length() > 0 )
+      ss << "\n bssid=" << bssid;
+    ss << "\n}";
     ss.close();
     pid_t cp = fork();
     if ( cp ==  0 )
