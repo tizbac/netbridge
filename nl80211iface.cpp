@@ -178,7 +178,11 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid, std
     {
         
         unsigned char bssid_bin[6];
-        mac_addr_a2n(bssid_bin,bssid.c_str());
+        char str[256];
+        if ( bssid.length() > 255 )
+            return;
+        strcpy(str,bssid.c_str());
+        mac_addr_a2n(bssid_bin,str);
         
         std::cout << name << ":Connecting to specific mac address" << std::endl;
         //printf("%02x:%02x:%02x:%02x:%02x:%02x\n",(int)bssid_bin[0],(int)bssid_bin[1],(int)bssid_bin[2],(int)bssid_bin[3],(int)bssid_bin[4],(int)bssid_bin[5]);
