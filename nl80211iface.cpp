@@ -34,6 +34,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sstream>
+#include <stdio.h>
 static inline struct nl_handle *nl_socket_alloc(void)
 {
     return nl_handle_alloc();
@@ -84,6 +85,33 @@ void mac_addr_n2a(char *mac_addr, unsigned char *arg)
             l += 3;
         }
     }
+}
+
+int mac_addr_a2n(unsigned char *mac_addr, char *arg)
+{
+    int i;
+
+    for (i = 0; i < ETH_ALEN ; i++) {
+        int temp;
+        char *cp = strchr(arg, ':');
+        if (cp) {
+            *cp = 0;
+            cp++;
+        }
+        if (sscanf(arg, "%x", &temp) != 1)
+            return -1;
+        if (temp < 0 || temp > 255)
+            return -1;
+
+        mac_addr[i] = temp;
+        if (!cp)
+            break;
+        arg = cp;
+    }
+    if (i < ETH_ALEN - 1)
+        return -1;
+
+    return 0;
 }
 
 int nl802111_id = -1;
@@ -148,19 +176,12 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid, std
     NLA_PUT(msg, NL80211_ATTR_SSID, ssid.length(), ssid.c_str());
     if ( bssid.length() == 17 )
     {
-        std::string bssid_copy = bssid;
+        
         unsigned char bssid_bin[6];
-        int i = 0;
-        while ( i < 6)
-        {
-            std::stringstream ss;
-            ss << std::hex << bssid_copy.substr(i*3,2);
-            int val;
-            ss >> val;
-            bssid_bin[i++] = val;
-        }
+        mac_addr_a2n(bssid_bin,bssid.c_str());
         
         std::cout << name << ":Connecting to specific mac address" << std::endl;
+        //printf("%02x:%02x:%02x:%02x:%02x:%02x\n",(int)bssid_bin[0],(int)bssid_bin[1],(int)bssid_bin[2],(int)bssid_bin[3],(int)bssid_bin[4],(int)bssid_bin[5]);
         NLA_PUT(msg, NL80211_ATTR_MAC, 6 , bssid_bin);
     }
     struct nl_cb *s_cb;
