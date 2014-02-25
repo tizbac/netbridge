@@ -113,7 +113,7 @@ WPASupplicantInstance::WPASupplicantInstance(std::string ifname, std::string ssi
     ss2 << "/var/run/netbridge/" << m_ifname << "ctrl_interface";
     unlink(ss2.str().c_str());*/
    
-    pthread_mutex_init(&dhcp_pidname_mutex);
+    pthread_mutex_init(&dhcp_pidname_mutex,NULL);
     pthread_mutex_init(&keepalive_mutex,NULL);
     pthread_cond_init(&keepalive_cond,NULL);
     pthread_create(&dhcp_th,NULL,(void* (*)(void*))&WPASupplicantInstance::dhcp_thread,this);
