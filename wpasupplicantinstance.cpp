@@ -93,7 +93,7 @@ WPASupplicantInstance::WPASupplicantInstance(std::string ifname, std::string ssi
     m_gateway = gateway;
     m_mark = mark;
     isconnected = false;
-    
+    keepalive_run = true;
     if ( ssid.find(',') != ssid.npos )
     {
       m_bssid = ssid.substr(ssid.find(',')+1);
