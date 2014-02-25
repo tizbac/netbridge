@@ -91,7 +91,7 @@ int mac_addr_a2n(unsigned char *mac_addr, char *arg)
 {
     int i;
 
-    for (i = 0; i < ETH_ALEN ; i++) {
+    for (i = 0; i < 6 ; i++) {
         int temp;
         char *cp = strchr(arg, ':');
         if (cp) {
@@ -108,7 +108,7 @@ int mac_addr_a2n(unsigned char *mac_addr, char *arg)
             break;
         arg = cp;
     }
-    if (i < ETH_ALEN - 1)
+    if (i < 6 - 1)
         return -1;
 
     return 0;
@@ -174,13 +174,14 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid, std
     devidx = if_nametoindex(name.c_str());
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
     NLA_PUT(msg, NL80211_ATTR_SSID, ssid.length(), ssid.c_str());
+    
     if ( bssid.length() == 17 )
     {
         
         unsigned char bssid_bin[6];
         char str[256];
         if ( bssid.length() > 255 )
-            return;
+            return false;
         strcpy(str,bssid.c_str());
         mac_addr_a2n(bssid_bin,str);
         
@@ -188,16 +189,21 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid, std
         //printf("%02x:%02x:%02x:%02x:%02x:%02x\n",(int)bssid_bin[0],(int)bssid_bin[1],(int)bssid_bin[2],(int)bssid_bin[3],(int)bssid_bin[4],(int)bssid_bin[5]);
         NLA_PUT(msg, NL80211_ATTR_MAC, 6 , bssid_bin);
     }
+    
     struct nl_cb *s_cb;
+    
     s_cb = nl_cb_alloc(NL_CB_DEFAULT);
+    
     nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
-     
+    // std::cout << "F2" << std::endl;
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
         std::cerr << "Netlink: Invio comando fallito" << std::endl;
         pthread_mutex_unlock(&netlink_mutex);
+        
         return false;
     }
+    
     err = 1;
     
     nl_cb_err(cb, NL_CB_CUSTOM, error_handler, &err);
@@ -209,11 +215,18 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid, std
     
     nl_cb_put(cb);
     
-    nla_put_failure:
+    
     
     nlmsg_free(msg);
+    
     if ( ! err )
         std::cout << "Interfaccia " << name << " In connessione... " << std::endl;
+    else
+        std::cerr << name << ": Errore " << err << std::endl;
+    
+    nla_put_failure:
+  //  std::cout << "F" << std::endl;
+    
     pthread_mutex_unlock(&netlink_mutex);
     return true;
 }
@@ -371,6 +384,9 @@ bool NL80211Iface::createNewVirtualIface(std::string name, std::string mac_addr)
     ioctl(s, SIOCSIFHWADDR, &ifr);
     ioctl(s, SIOCSIFFLAGS, &ifr);
     std::cout << "Creata nuova interfaccia " << name << " su " << m_ifname << " con mac address: " << mac_addr << std::endl;
+    
+    
+    
     pthread_mutex_unlock(&netlink_mutex);
     return true;
 }
