@@ -222,7 +222,7 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid, std
     if ( ! err )
         std::cout << "Interfaccia " << name << " In connessione... " << std::endl;
     else
-        std::cerr << name << ": Errore " << err << std::endl;
+        std::cerr << name << ": Errore " << err << "-" << strerror(-err) << std::endl;
     
     nla_put_failure:
   //  std::cout << "F" << std::endl;

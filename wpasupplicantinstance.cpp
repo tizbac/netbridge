@@ -49,7 +49,7 @@ void WPASupplicantInstance::dhcp_thread()
     if ( !dhcp_thread_run )
         return;
     std::stringstream ss;
-    ss << "dhclient " << m_ifname << " -pf /var/run/netbridge/dhclient_pid_" << m_ifname << ".pid";
+    ss << "dhclient " << m_ifname << " -pf /var/run/netbridge/dhclient_pid_" << rand() << rand() << rand() << rand() << ".pid";
 
     system(ss.str().c_str());
         
@@ -93,12 +93,13 @@ WPASupplicantInstance::WPASupplicantInstance(std::string ifname, std::string ssi
     m_gateway = gateway;
     m_mark = mark;
     isconnected = false;
-    m_ssid = ssid;
+    
     if ( ssid.find(',') != ssid.npos )
     {
       m_bssid = ssid.substr(ssid.find(',')+1);
       ssid = ssid.substr(0,ssid.find(','));
     }
+    m_ssid = ssid;
    /* std::stringstream ss2;
     ss2 << "/var/run/netbridge/" << m_ifname << "ctrl_interface";
     unlink(ss2.str().c_str());*/
