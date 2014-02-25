@@ -48,7 +48,7 @@ void WPASupplicantInstance::dhcp_thread()
     if ( !dhcp_thread_run )
         return;
     std::stringstream ss;
-    ss << "dhclient " << m_ifname << " -pf /var/run/netbridge/dhclient_pid_" << m_ifname << ".pid";
+    ss << "dhclient " << m_ifname << " -pf /var/run/netbridge/dhclient_pid_" << m_ifname << ".pid" << " -lf /tmp/" << rand() << rand() << rand() << rand() << ".lease";
 
     system(ss.str().c_str());
         
@@ -80,7 +80,7 @@ WPASupplicantInstance::WPASupplicantInstance(std::string ifname, std::string ssi
     
     confn << "/var/run/netbridge/" << ifname << ".conf";
     std::ofstream ss(confn.str().c_str());
-    ss << "ctrl_interface=/var/run/netbridge/\n";
+    ss << "ctrl_interface=/var/run/netbridge/\nap_scan=1\n";
     ss << "network={\n ssid=\"" << ssid << "\"\n key_mgmt=NONE";
     if ( bssid.length() > 0 )
       ss << "\n bssid=" << bssid;
