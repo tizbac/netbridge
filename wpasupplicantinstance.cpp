@@ -50,11 +50,11 @@ void WPASupplicantInstance::dhcp_thread()
         return;
     std::stringstream ss;
     std::stringstream ss2;
-    ss2 << rand() << rand() << rand() << rand();
+    ss2 << "/var/run/netbridge/dhclient_pid_" << rand() << rand() << rand() << rand() << ".pid";
     pthread_mutex_lock(&dhcp_pidname_mutex);
     m_dhcp_pid_file = ss2.str();
     pthread_mutex_unlock(&dhcp_pidname_mutex);
-    ss << "dhclient " << m_ifname << " -pf /var/run/netbridge/dhclient_pid_" << ss2.str() << ".pid";
+    ss << "dhclient " << m_ifname << " -pf " << ss2.str();
 
     system(ss.str().c_str());
         
