@@ -49,7 +49,12 @@ void WPASupplicantInstance::dhcp_thread()
     if ( !dhcp_thread_run )
         return;
     std::stringstream ss;
-    ss << "dhclient " << m_ifname << " -pf /var/run/netbridge/dhclient_pid_" << rand() << rand() << rand() << rand() << ".pid";
+    std::stringstream ss2;
+    ss2 << rand() << rand() << rand() << rand();
+    pthread_mutex_lock(&dhcp_pidname_mutex);
+    m_dhcp_pid_file = ss2.str();
+    pthread_mutex_unlock(&dhcp_pidname_mutex);
+    ss << "dhclient " << m_ifname << " -pf /var/run/netbridge/dhclient_pid_" << ss2.str() << ".pid";
 
     system(ss.str().c_str());
         
@@ -108,7 +113,7 @@ WPASupplicantInstance::WPASupplicantInstance(std::string ifname, std::string ssi
     ss2 << "/var/run/netbridge/" << m_ifname << "ctrl_interface";
     unlink(ss2.str().c_str());*/
    
-   
+    pthread_mutex_init(&dhcp_pidname_mutex);
     pthread_mutex_init(&keepalive_mutex,NULL);
     pthread_cond_init(&keepalive_cond,NULL);
     pthread_create(&dhcp_th,NULL,(void* (*)(void*))&WPASupplicantInstance::dhcp_thread,this);
@@ -148,12 +153,13 @@ WPASupplicantInstance::~WPASupplicantInstance()
     std::cout << "wpa_supplicant con PID: " << m_pid << " terminato " << std::endl;
     
     std::cout << "Thread dhcp terminato" << std::endl;
-    std::stringstream ss;
-    ss << "/var/run/netbridge/dhclient_pid_" << m_ifname << ".pid";
+    
     
     
     int pid;
-    FILE * f = fopen(ss.str().c_str(),"r");
+    pthread_mutex_lock(&dhcp_pidname_mutex);
+    FILE * f = fopen(m_dhcp_pid_file.c_str(),"r");
+    pthread_mutex_unlock(&dhcp_pidname_mutex);
     if ( f )
     {
         fscanf(f,"%d",&pid);
@@ -161,8 +167,9 @@ WPASupplicantInstance::~WPASupplicantInstance()
         fclose(f);
         kill(pid,SIGTERM);
     }
-    unlink(ss.str().c_str());
-    
+    pthread_mutex_lock(&dhcp_pidname_mutex);
+    unlink(m_dhcp_pid_file.c_str());
+    pthread_mutex_unlock(&dhcp_pidname_mutex);
     dhcp_thread_run = false;
     pthread_join(dhcp_th,NULL);
     keepalive_run = false;

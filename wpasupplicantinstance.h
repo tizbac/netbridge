@@ -53,6 +53,8 @@ private:
     
     pthread_cond_t keepalive_cond;
     pthread_mutex_t keepalive_mutex;
+    pthread_mutex_t dhcp_pidname_mutex;
+    std::string m_dhcp_pid_file;
 };
 
 #endif // WPASUPPLICANTINSTANCE_H
