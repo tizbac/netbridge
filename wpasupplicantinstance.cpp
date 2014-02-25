@@ -33,6 +33,7 @@
 #include <netinet/in.h>
 #include <fstream>
 #include <stdio.h>
+#include <time.h>
 void WPASupplicantInstance::dhcp_thread()
 {
     std::cout << "Thread DHCP avviato" << std::endl;
@@ -58,6 +59,31 @@ void WPASupplicantInstance::dhcp_thread()
 
 }
 
+void WPASupplicantInstance::keepalive_thread()
+{
+    NL80211Iface iface(m_ifname);
+    iface.connectVirtualIfaceTo(m_ifname,m_ssid,m_bssid);//La prima volta deve lanciare subito la connessione
+    struct timeval now;
+    struct timespec ts;
+    gettimeofday(&now,NULL);
+    ts.tv_sec = now.tv_sec;
+    ts.tv_nsec = now.tv_usec *1000;
+    ts.tv_sec += 10;
+
+    pthread_cond_timedwait(&keepalive_cond,&keepalive_mutex,&ts);
+    while ( !iface.isConnected() && keepalive_run)
+    {
+        std::cerr << m_ifname << ":Connessione fallita, ritento..." << std::endl;
+        iface.connectVirtualIfaceTo(m_ifname,m_ssid,m_bssid);
+        gettimeofday(&now,NULL);
+        ts.tv_sec = now.tv_sec;
+        ts.tv_nsec = now.tv_usec *1000;
+        ts.tv_sec += 10;
+        pthread_cond_timedwait(&keepalive_cond,&keepalive_mutex,&ts);
+    }
+}
+
+
 WPASupplicantInstance::WPASupplicantInstance(std::string ifname, std::string ssid, std::string routing_table, std::string gateway, int mark)
 {
     std::stringstream confn;
@@ -67,19 +93,23 @@ WPASupplicantInstance::WPASupplicantInstance(std::string ifname, std::string ssi
     m_gateway = gateway;
     m_mark = mark;
     isconnected = false;
-    std::string bssid;
+    m_ssid = ssid;
     if ( ssid.find(',') != ssid.npos )
     {
-      bssid = ssid.substr(ssid.find(',')+1);
+      m_bssid = ssid.substr(ssid.find(',')+1);
       ssid = ssid.substr(0,ssid.find(','));
     }
    /* std::stringstream ss2;
     ss2 << "/var/run/netbridge/" << m_ifname << "ctrl_interface";
     unlink(ss2.str().c_str());*/
+   
+   
+    pthread_mutex_init(&keepalive_mutex,NULL);
+    pthread_cond_init(&keepalive_cond,NULL);
     pthread_create(&dhcp_th,NULL,(void* (*)(void*))&WPASupplicantInstance::dhcp_thread,this);
-    
-    confn << "/var/run/netbridge/" << ifname << ".conf";
-    std::ofstream ss(confn.str().c_str());
+    pthread_create(&keepalive_th,NULL,(void* (*)(void*))&WPASupplicantInstance::keepalive_thread,this);
+   // confn << "/var/run/netbridge/" << ifname << ".conf";
+   /* std::ofstream ss(confn.str().c_str());
     ss << "ctrl_interface=/var/run/netbridge/\n";
     ss << "network={\n ssid=\"" << ssid << "\"\n key_mgmt=NONE";
     if ( bssid.length() > 0 )
@@ -97,8 +127,8 @@ WPASupplicantInstance::WPASupplicantInstance(std::string ifname, std::string ssi
         int ret = execl("/usr/sbin/wpa_supplicant","wpa_supplicant","-onl80211",iface.str().c_str(),conf.str().c_str());
         exit(ret);
     }
-    std::cout << "Avviato wpa_supplicant, PID: " << cp << std::endl;
-    m_pid = cp;
+    std::cout << "Avviato wpa_supplicant, PID: " << cp << std::endl;*/
+
 }
 void WPASupplicantInstance::pollConnection()
 {
@@ -109,10 +139,7 @@ void WPASupplicantInstance::pollConnection()
 WPASupplicantInstance::~WPASupplicantInstance()
 {
     int status;
-    kill(m_pid,SIGTERM);
-    waitpid(m_pid,&status,0);
-    kill(m_pid,SIGKILL);
-    waitpid(m_pid,&status,0);
+
     std::cout << "wpa_supplicant con PID: " << m_pid << " terminato " << std::endl;
     
     std::cout << "Thread dhcp terminato" << std::endl;
@@ -133,6 +160,8 @@ WPASupplicantInstance::~WPASupplicantInstance()
     
     dhcp_thread_run = false;
     pthread_join(dhcp_th,NULL);
-    
+    keepalive_run = false;
+    pthread_cond_broadcast(&keepalive_cond);
+    pthread_join(keepalive_th,NULL);
 }
 

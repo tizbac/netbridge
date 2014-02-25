@@ -32,6 +32,8 @@
 #include <netlink/attr.h>
 #include <iostream>
 #include <string.h>
+#include <stdlib.h>
+#include <sstream>
 static inline struct nl_handle *nl_socket_alloc(void)
 {
     return nl_handle_alloc();
@@ -129,7 +131,7 @@ bool NL80211Iface::isConnected()
 }
 
 
-bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid)
+bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid, std::string bssid)
 {
     pthread_mutex_lock(&netlink_mutex);
     struct nl_msg *msg;
@@ -144,6 +146,23 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid)
     devidx = if_nametoindex(name.c_str());
     NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, devidx);
     NLA_PUT(msg, NL80211_ATTR_SSID, ssid.length(), ssid.c_str());
+    if ( bssid.length() == 17 )
+    {
+        std::string bssid_copy = bssid;
+        unsigned char bssid_bin[6];
+        int i = 0;
+        while ( i < 6)
+        {
+            std::stringstream ss;
+            ss << std::hex << bssid_copy.substr(i*3,2);
+            int val;
+            ss >> val;
+            bssid_bin[i++] = val;
+        }
+        
+        std::cout << name << ":Connecting to specific mac address" << std::endl;
+        NLA_PUT(msg, NL80211_ATTR_MAC, 6 , bssid_bin);
+    }
     struct nl_cb *s_cb;
     s_cb = nl_cb_alloc(NL_CB_DEFAULT);
     nl_socket_set_cb((nl_handle*)nl_sck,s_cb);

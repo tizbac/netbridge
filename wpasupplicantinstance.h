@@ -33,11 +33,12 @@ public:
     void pollConnection();
 private:
     void dhcp_thread();
-
+    void keepalive_thread();
     std::string config;
     pid_t m_pid;
     struct wpa_ctrl * c;
     pthread_t dhcp_th;
+    pthread_t keepalive_th;
     std::string m_ifname;
     bool dhcp_thread_run;
     std::string m_rtname;
@@ -45,6 +46,13 @@ private:
     int m_mark;
     pid_t m_dhcp_pid;
     bool isconnected;
+    std::string m_bssid;
+    std::string m_ssid;
+    bool keepalive_run;
+    
+    
+    pthread_cond_t keepalive_cond;
+    pthread_mutex_t keepalive_mutex;
 };
 
 #endif // WPASUPPLICANTINSTANCE_H

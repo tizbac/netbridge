@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <set>
 #include <map>
+#include <vector>
 #include <sstream>
 #include <sys/stat.h>
 std::set<std::string> stations;

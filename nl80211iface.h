@@ -38,7 +38,7 @@ public:
     bool createNewVirtualIface(std::string name , std::string mac_addr);
     bool deleteVirtualIface(std::string name);
     bool disconnectVirtualIface(std::string name);
-    bool connectVirtualIfaceTo(std::string name, std::string ssid);
+    bool connectVirtualIfaceTo(std::string name, std::string ssid,std::string bssid);
     bool isConnected();
 private:
     std::string m_ifname;
