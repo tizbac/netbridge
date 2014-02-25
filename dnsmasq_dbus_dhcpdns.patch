@@ -1,0 +1,153 @@
+--- /home/tiziano/Scaricati/dnsmasq-2.68/src/dbus.c	2013-12-08 16:58:29.000000000 +0100
++++ src/dbus.c	2014-02-09 12:53:33.680952905 +0100
+@@ -16,6 +16,7 @@
+ 
+ #include "dnsmasq.h"
+ 
++
+ #ifdef HAVE_DBUS
+ 
+ #include <dbus/dbus.h>
+@@ -41,6 +42,9 @@
+ "    <method name=\"SetDomainServers\">\n"
+ "      <arg name=\"servers\" direction=\"in\" type=\"as\"/>\n"
+ "    </method>\n"
++"    <method name=\"SetDhcpDomainServers\">\n"
++"      <arg name=\"servers\" direction=\"in\" type=\"as\"/>\n"
++"    </method>\n"
+ "    <method name=\"SetServersEx\">\n"
+ "      <arg name=\"servers\" direction=\"in\" type=\"aas\"/>\n"
+ "    </method>\n"
+@@ -469,7 +473,116 @@
+ 
+   return error;
+ }
++static DBusMessage* dbus_set_dns_dhcp(DBusMessage *message, int strings)
++{
++    DBusMessageIter iter, array_iter, string_iter;
++    DBusMessage *error = NULL;
++    const char *addr_err;
++    char *dup = NULL;
++
++   
++    
++    if (!dbus_message_iter_init(message, &iter))
++    {
++        return dbus_message_new_error(message, DBUS_ERROR_INVALID_ARGS,
++                                    "Failed to initialize dbus message iter");
++    }
++
++    /* check that the message contains an array of arrays */
++    if ((dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY) ||
++        (dbus_message_iter_get_element_type(&iter) != (strings ? DBUS_TYPE_STRING : DBUS_TYPE_ARRAY)))
++    {
++        return dbus_message_new_error(message, DBUS_ERROR_INVALID_ARGS,
++                                    strings ? "Expected array of string" : "Expected array of string arrays");
++        }
++
++        
++     struct dhcp_opt * o = daemon->dhcp_opts;
++     struct dhcp_opt * prev = NULL;
++    while ( o )
++    {
++        /*char saddr[64];
++        inet_ntop(AF_INET,o->val,saddr,64);
++        printf("%d %d %s\n",o->opt,o->len,saddr);*/
++        if ( o->opt == 6 )
++            break;
++        prev = o;
++        o = o->next;
++    }
++    if ( !daemon->dhcp_opts )//The linked list is empty
++    {
++        o = (struct dhcp_opt*)malloc(sizeof(struct dhcp_opt));
++        daemon->dhcp_opts = o;
++        memset(o,0,sizeof(struct dhcp_opt));
++        o->opt = 6;
++        
++    }else if ( !o  )
++    {
++        if ( !prev )
++            abort();
++        o = (struct dhcp_opt*)malloc(sizeof(struct dhcp_opt));
++        prev->next = o;
++        memset(o,0,sizeof(struct dhcp_opt));
++        o->opt = 6;
++    }
++    unsigned int addresses[16];//Max 16 ipv4
++    int curraddr = 0;
++    mark_dbus();
++    dbus_message_iter_recurse(&iter, &array_iter);
++    while (dbus_message_iter_get_arg_type(&array_iter) != DBUS_TYPE_INVALID)
++    {
++        const char *str = NULL;
++      union  mysockaddr addr, source_addr;
++      char interface[IF_NAMESIZE];
++      char *str_addr, *str_domain = NULL;
++
++
++      dbus_message_iter_get_basic(&array_iter, &str);
++      if (!str || !strlen (str))
++          {
++          error = dbus_message_new_error(message, DBUS_ERROR_INVALID_ARGS,
++                                    "Empty string");
++          break;
++        }
++        printf("Str:%s\n",str);
++      memset(&addr, 0, sizeof(addr));
++      memset(&source_addr, 0, sizeof(source_addr));
++      memset(&interface, 0, sizeof(interface));
+ 
++      /* parse the IP address */
++      addr_err = parse_server(str, &addr, &source_addr, (char *) &interface, NULL);
++
++      if (addr_err)
++        {
++          error = dbus_message_new_error_printf(message, DBUS_ERROR_INVALID_ARGS,
++                                                "Invalid IP address '%s': %s",
++                                                str, addr_err);
++          break;
++        }
++      inet_pton(AF_INET,str,&addresses[curraddr++]);
++      
++        
++      dbus_message_iter_next(&array_iter);
++        
++    }
++    
++    if ( !error )
++    {
++        if ( o->val )
++            free(o->val);
++        o->val = malloc(4*curraddr);
++        memcpy(o->val,addresses,4*curraddr);
++        o->len = 4*curraddr;
++        my_syslog(LOG_INFO, _("setting DHCP option dns-server from DBus"));
++    }
++    cleanup_dbus();
++
++  if (dup)
++    free(dup);
++
++  return error;
++    
++}
+ DBusHandlerResult message_handler(DBusConnection *connection, 
+ 				  DBusMessage *message, 
+ 				  void *user_data)
+@@ -513,6 +626,10 @@
+       reply = dbus_read_servers_ex(message, 1);
+       new_servers = 1;
+     }
++  else if (strcmp(method, "SetDhcpDomainServers") == 0)
++    {
++      reply = dbus_set_dns_dhcp(message, 1);
++    }
+   else if (strcmp(method, "ClearCache") == 0)
+     clear_cache = 1;
+   else
+@@ -691,3 +808,4 @@
+ #endif
+ 
+ #endif
++
