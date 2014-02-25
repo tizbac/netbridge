@@ -71,10 +71,14 @@ void WPASupplicantInstance::keepalive_thread()
     ts.tv_sec += 10;
 
     pthread_cond_timedwait(&keepalive_cond,&keepalive_mutex,&ts);
-    while ( !iface.isConnected() && keepalive_run)
+    while ( keepalive_run)
     {
-        std::cerr << m_ifname << ":Connessione fallita, ritento..." << std::endl;
-        iface.connectVirtualIfaceTo(m_ifname,m_ssid,m_bssid);
+        if ( !iface.isConnected() )
+        {
+            std::cerr << m_ifname << ":Connessione fallita, ritento..." << std::endl;
+            iface.connectVirtualIfaceTo(m_ifname,m_ssid,m_bssid);
+            
+        }
         gettimeofday(&now,NULL);
         ts.tv_sec = now.tv_sec;
         ts.tv_nsec = now.tv_usec *1000;
