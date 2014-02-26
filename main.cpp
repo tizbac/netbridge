@@ -8,6 +8,7 @@
 #include <map>
 #include <vector>
 #include <sstream>
+#include <signal.h>
 #include <sys/stat.h>
 std::set<std::string> stations;
 std::map<std::string,int> clients; // Mac address connessione verso sapienza , indice slot
@@ -45,6 +46,32 @@ std::string rtablename(int index)
     sprintf(ifname,"client%03d",index);
     return std::string(ifname);
 }
+void on_terminate()
+{
+  RoutingManager rmgr;
+  std::cerr << "Uscita..." << std::endl;
+  for ( std::set<std::string>::iterator it = stations.begin(); it != stations.end(); it++ )
+  {
+
+    int slot = clients[mac_addr_translate(*it)];
+    slots[slot] = "";
+    NL80211Iface sta(vifname(slot));
+    sta.disconnectVirtualIface(vifname(slot));
+    sta.deleteVirtualIface(vifname(slot));
+    rmgr.clearTableMark(rtablename(slot));
+    rmgr.removeDefaultRouteFromTable(rtablename(slot));
+    std::stringstream cmd;
+    cmd << "iptables -D PREROUTING -m mac --mac-source " << *it << " -t mangle -j MARK --set-mark " << slot+1;
+    std::stringstream cmd2;
+    cmd2 << "iptables -t nat -D POSTROUTING -s 172.16.0.0/16 -o " << vifname(slot) << " -j MASQUERADE";
+    system(cmd2.str().c_str());
+    system(cmd.str().c_str());
+    clients.erase(mac_addr_translate(*it));
+    delete wpa_supplicants[slot];
+
+  }
+  exit(0);
+}
 int main(int argc, char **argv) {
    // std::cout << "Hello, world!" << std::endl;
     NL80211Iface::init();
@@ -54,6 +81,8 @@ int main(int argc, char **argv) {
         std::cerr << "Utilizzo: netbridge ssid gateway interfaccia_client interfaccia_ap" << std::endl;
         return 1;
     }
+    signal(SIGINT,on_terminate);
+    signal(SIGTERM,on_terminate);
     
     std::string ssid = argv[1];
     std::string gateway = argv[2];
