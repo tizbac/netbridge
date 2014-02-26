@@ -46,7 +46,7 @@ std::string rtablename(int index)
     sprintf(ifname,"client%03d",index);
     return std::string(ifname);
 }
-void on_terminate()
+void on_terminate(int sig)
 {
   RoutingManager rmgr;
   std::cerr << "Uscita..." << std::endl;
