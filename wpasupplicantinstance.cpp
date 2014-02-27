@@ -34,16 +34,17 @@
 #include <fstream>
 #include <stdio.h>
 #include <time.h>
+#include "log.h"
 void WPASupplicantInstance::dhcp_thread()
 {
-    std::cout << "Thread DHCP avviato" << std::endl;
+    L->debug("DHCP Thread started for "+m_ifname);
     //NL80211Iface iface(m_ifname); Netlink si scazza con il multithreading
     RoutingManager rmgr;
     while ( dhcp_thread_run )
     {
         if ( isconnected )
             break;
-        std::cout << "Attendo la connessione..." << std::endl;
+        L->debug(m_ifname+": Waiting for link...");
         usleep(500000);
     }
     if ( !dhcp_thread_run )
@@ -58,7 +59,7 @@ void WPASupplicantInstance::dhcp_thread()
 
     system(ss.str().c_str());
         
-    std::cout << "DHCP Completato, impostazione del routing..." << std::endl;
+    L->info(m_ifname+": DHCP Completed, setting up routes..." << std::endl;
     rmgr.addDefaultRouteToIface(m_ifname,m_gateway,m_rtname);
     rmgr.addTableMark(m_rtname,m_mark);
 
@@ -80,7 +81,7 @@ void WPASupplicantInstance::keepalive_thread()
     {
         if ( !iface.isConnected() )
         {
-            std::cerr << m_ifname << ":Connessione fallita, ritento..." << std::endl;
+            L->warn(m_ifname+": Connection failed, retrying in 10 seconds...");
             iface.connectVirtualIfaceTo(m_ifname,m_ssid,m_bssid);
             
         }
@@ -150,9 +151,7 @@ WPASupplicantInstance::~WPASupplicantInstance()
 {
     int status;
 
-    std::cout << "wpa_supplicant con PID: " << m_pid << " terminato " << std::endl;
     
-    std::cout << "Thread dhcp terminato" << std::endl;
     
     
     
@@ -163,7 +162,10 @@ WPASupplicantInstance::~WPASupplicantInstance()
     if ( f )
     {
         fscanf(f,"%d",&pid);
-        std::cout << "Terminazione di dhclient... associato all'interfaccia " << m_ifname << "con pid " << pid << std::endl;
+        std::stringstream ss;
+        ss << "Killing dhclient(" << pid << ")...";
+        L->debug(ss.str());
+        //std::cout << "Terminazione di dhclient... associato all'interfaccia " << m_ifname << "con pid " << pid << std::endl;
         fclose(f);
         kill(pid,SIGTERM);
     }
@@ -175,5 +177,9 @@ WPASupplicantInstance::~WPASupplicantInstance()
     keepalive_run = false;
     pthread_cond_broadcast(&keepalive_cond);
     pthread_join(keepalive_th,NULL);
+    pthread_mutex_destroy(&dhcp_pidname_mutex);
+    pthread_mutex_destroy(&keepalive_mutex);
+    pthread_cond_destroy(&keepalive_cond);
+    L->info("Interface "+m_ifname+" destroyed");
 }
 
