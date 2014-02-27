@@ -47,7 +47,7 @@ void Log::warn(std::string msg)
 }
 void Log::debug(std::string msg)
 {
-    outStr(std::string("\033[1m\033[34m")+"-WARN - \033[0m\033[34m"+msg+"\033[0m");
+    outStr(std::string("\033[1m\033[34m")+"-DEBUG- \033[0m\033[34m"+msg+"\033[0m");
 }
 
 
