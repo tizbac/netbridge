@@ -59,7 +59,7 @@ void WPASupplicantInstance::dhcp_thread()
 
     system(ss.str().c_str());
         
-    L->info(m_ifname+": DHCP Completed, setting up routes..." << std::endl;
+    L->info(m_ifname+": DHCP Completed, setting up routes...");
     rmgr.addDefaultRouteToIface(m_ifname,m_gateway,m_rtname);
     rmgr.addTableMark(m_rtname,m_mark);
 
