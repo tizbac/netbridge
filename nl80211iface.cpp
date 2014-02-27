@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <sstream>
 #include <stdio.h>
+#include "log.h"
 static inline struct nl_handle *nl_socket_alloc(void)
 {
     return nl_handle_alloc();
@@ -123,20 +124,20 @@ void NL80211Iface::init()
     nl_sck = (nl_sock*)nl_socket_alloc();
     if ( !nl_sck )
     {
-        std::cerr << "Impossibile allocare il socket netlink " << std::endl;
+        L->error("Unable to allocate netlink socket");
         abort();
     }
     nl_socket_set_buffer_size(nl_sck, 8192, 8192);
     if ( genl_connect((nl_handle*)nl_sck) )
     {
-        std::cerr << "Impossibile connettersi a netlink " << std::endl;
+        L->error("Unable to estabilish a connection to netlink");
         abort();
     }
     
     nl802111_id = genl_ctrl_resolve((nl_handle*)nl_sck, "nl80211");
     if ( nl802111_id < 0 )
     {
-        std::cerr << "Impossibile trovare nl80211 " << std::endl;
+        L->error("Unable to find nl80211");
         abort();
     }
 }
@@ -184,8 +185,11 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid, std
             return false;
         strcpy(str,bssid.c_str());
         mac_addr_a2n(bssid_bin,str);
-        
-        std::cout << name << ":Connecting to specific mac address" << std::endl;
+        {
+            std::stringstream ss;
+            ss << name << ":Connecting to specific mac address";
+            L->error(ss.str());
+        }
         //printf("%02x:%02x:%02x:%02x:%02x:%02x\n",(int)bssid_bin[0],(int)bssid_bin[1],(int)bssid_bin[2],(int)bssid_bin[3],(int)bssid_bin[4],(int)bssid_bin[5]);
         NLA_PUT(msg, NL80211_ATTR_MAC, 6 , bssid_bin);
     }
@@ -198,7 +202,7 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid, std
     // std::cout << "F2" << std::endl;
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
-        std::cerr << "Netlink: Invio comando fallito" << std::endl;
+        L->error("Netlink: Failed to send connect command");
         pthread_mutex_unlock(&netlink_mutex);
         
         return false;
@@ -220,10 +224,17 @@ bool NL80211Iface::connectVirtualIfaceTo(std::string name, std::string ssid, std
     nlmsg_free(msg);
     
     if ( ! err )
-        std::cout << "Interfaccia " << name << " In connessione... " << std::endl;
+        L->info("Interface "+name+" is connecting to AP...");
     else
-        std::cerr << name << ": Errore " << err << "-" << strerror(-err) << std::endl;
-    
+    {
+        std::stringstream ss;
+        
+        ss << name << ": Connection failed:" << err << "-" << strerror(-err);
+        
+        L->error(ss.str());
+     
+    }
+
     nla_put_failure:
   //  std::cout << "F" << std::endl;
     
@@ -253,7 +264,7 @@ bool NL80211Iface::disconnectVirtualIface(std::string name)
     nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
-        std::cerr << "Netlink: Invio comando fallito" << std::endl;
+        L->error("Netlink: Failed to send disconnect command");
         pthread_mutex_unlock(&netlink_mutex);
         return false;
     }
@@ -272,7 +283,16 @@ bool NL80211Iface::disconnectVirtualIface(std::string name)
     
     nlmsg_free(msg);
     if ( ! err )
-        std::cout << "Interfaccia " << name << " Disconnessa " << std::endl;
+        L->info("Interface "+name+" disconnected");
+    else
+    {
+        std::stringstream ss;
+        
+        ss << name << ": Disconnection failed:" << err << "-" << strerror(-err);
+        
+        L->error(ss.str());
+    }
+
     pthread_mutex_unlock(&netlink_mutex);
     return true;
 }
@@ -298,7 +318,7 @@ bool NL80211Iface::deleteVirtualIface(std::string name)
     nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
-        std::cerr << "Netlink: Invio comando fallito" << std::endl;
+        L->error("Netlink: Failed to send delete interface command");
         pthread_mutex_unlock(&netlink_mutex);
         return false;
     }
@@ -317,7 +337,15 @@ bool NL80211Iface::deleteVirtualIface(std::string name)
     
     nlmsg_free(msg);
     if ( ! err )
-        std::cout << "Interfaccia " << name << " Eliminata " << std::endl;
+        L->info("Interface "+name+" destroyed");
+    else
+    {
+        std::stringstream ss;
+        
+        ss << name << ": Failed to destroy virtual interface:" << err << "-" << strerror(-err);
+        
+        L->error(ss.str());
+    }
     pthread_mutex_unlock(&netlink_mutex);
     return true;
 }
@@ -349,7 +377,7 @@ bool NL80211Iface::createNewVirtualIface(std::string name, std::string mac_addr)
     nl_socket_set_cb((nl_handle*)nl_sck,s_cb);
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
-        std::cerr << "Netlink: Invio comando fallito" << std::endl;
+        L->error("Netlink: Failed to send create interface command");
         pthread_mutex_unlock(&netlink_mutex);
         return false;
     }
@@ -383,7 +411,7 @@ bool NL80211Iface::createNewVirtualIface(std::string name, std::string mac_addr)
     ifr.ifr_flags = IFF_UP;
     ioctl(s, SIOCSIFHWADDR, &ifr);
     ioctl(s, SIOCSIFFLAGS, &ifr);
-    std::cout << "Creata nuova interfaccia " << name << " su " << m_ifname << " con mac address: " << mac_addr << std::endl;
+    L->info(std::string("New interface created: ")+name+" on "+m_ifname+" with HW addr: "+mac_addr);
     
     
     
@@ -413,7 +441,7 @@ std::vector< std::string > NL80211Iface::enumSta()
 
     if ( nl_send_auto_complete((nl_handle*)nl_sck,msg) < 0 )
     {
-        std::cerr << "Netlink: Invio comando fallito" << std::endl;
+        L->error("Netlink: Failed to send get station command");
         pthread_mutex_unlock(&netlink_mutex);
         return ret;
     }
@@ -430,8 +458,12 @@ std::vector< std::string > NL80211Iface::enumSta()
     
     nl_cb_put(cb);
     
-    nla_put_failure:
     
+    nla_put_failure:
+    if ( err )
+    {
+        L->warn("Failed to enumerate stations on "+m_ifname+", returning empty list");
+    }
     nlmsg_free(msg);
     pthread_mutex_unlock(&netlink_mutex);
     return ret;

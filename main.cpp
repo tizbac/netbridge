@@ -10,6 +10,8 @@
 #include <sstream>
 #include <signal.h>
 #include <sys/stat.h>
+#include "version.h"
+#include "log.h"
 std::set<std::string> stations;
 std::map<std::string,int> clients; // Mac address connessione verso sapienza , indice slot
 std::vector<std::string> slots;
@@ -49,7 +51,7 @@ std::string rtablename(int index)
 void on_terminate(int sig)
 {
   RoutingManager rmgr;
-  std::cerr << "Uscita..." << std::endl;
+  L->info("Uscita..");
   for ( std::set<std::string>::iterator it = stations.begin(); it != stations.end(); it++ )
   {
 
@@ -73,12 +75,13 @@ void on_terminate(int sig)
   exit(0);
 }
 int main(int argc, char **argv) {
-   // std::cout << "Hello, world!" << std::endl;
+    L->info("Netbridge version "VERSION);
     NL80211Iface::init();
+    new Log();
     mkdir("/var/run/netbridge",0557);
     if ( argc < 5 )
     {
-        std::cerr << "Utilizzo: netbridge ssid gateway interfaccia_client interfaccia_ap" << std::endl;
+        L->info("Utilizzo: netbridge ssid,[bssid] gateway interfaccia_client interfaccia_ap");
         return 1;
     }
     signal(SIGINT,on_terminate);
@@ -90,7 +93,7 @@ int main(int argc, char **argv) {
     std::string mac_test = "00:76:a1:44:b0:24";
     std::string translated = mac_addr_translate(mac_test);
     std::string retranslated = mac_addr_translate(translated);
-    std::cout << mac_test << " " << translated << " " << retranslated << std::endl;
+    L->debug(mac_test+" "+translated+" "+retranslated);
     
     NL80211Iface sta(argv[3]);
     std::vector<NL80211Iface*> aps;
@@ -103,14 +106,14 @@ int main(int argc, char **argv) {
     {
         std::cout << *it << std::endl;
     }*/
-    std::cout << "Disconnessione e rimozione di eventuali client vecchi..." << std::endl;
+    L->info("Disconnessione e rimozione di eventuali client vecchi...");
     for ( int i = 0; i < 200; i++ )
     {
         std::string ifname = vifname(i);
         sta.disconnectVirtualIface(ifname);
         sta.deleteVirtualIface(ifname);
     }
-    std::cout << "Pulizia delle regole di routing ed iptables..." << std::endl;
+    L->info("Pulizia delle regole di routing ed iptables...");
     for ( int i = 0; i < 200; i++ )
     {
         rmgr.removeDefaultRouteFromTable(rtablename(i));
@@ -120,7 +123,7 @@ int main(int argc, char **argv) {
     system("iptables -t nat -F");
     system("iptables -t mangle -F");
     
-    std::cout << "Abilito il forwarding..." << std::endl;
+    L->info("Abilito il forwarding...");
     
     system("sysctl -w net.ipv4.ip_forward=1");
 
@@ -197,8 +200,9 @@ int main(int argc, char **argv) {
                 wpa_supplicants[i]->pollConnection();
         }
         stations = curr_stations;
-        std::cout << stations.size() << " connessi" << std::endl;
-        
+        std::stringstream ss;
+        ss << stations.size() << " connessi";
+        L->debug(ss.str());
         
         
         sleep(3);
